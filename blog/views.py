@@ -3,14 +3,21 @@ from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 from django.views.generic import ListView
+from taggit.models import Tag
 
 from .forms import CommentForm, EmailPostForm
 from .models import Post
 
 
 # Function-Based View, Read ALL
-def post_list(request):
+def post_list(request, tag_slug=None):
     post_list = Post.published.all()
+    tag = None
+
+    if tag_slug:
+        tag = get_object_or_404(Tag, slug=tag_slug)
+        post_list = post_list.filter(tags__in=[tag])
+
     # Pagination with 3 posts per page
     paginator = Paginator(post_list, 3)
     page_number = request.GET.get("page", 1)
@@ -22,7 +29,8 @@ def post_list(request):
     except EmptyPage:
         # if page_number is out of range get last page of results
         posts = paginator.page(paginator.num_pages)
-    return render(request, "blog/post/list.html", {"posts": posts})
+
+    return render(request, "blog/post/list.html", {"posts": posts, "tag": tag})
 
 
 # Function-Based View, Read One
@@ -36,7 +44,7 @@ def post_detail(request, year, month, day, post):
         publish__day=day,
     )
     # List of active comments for this post
-    comments = post.comments.filter(active=True)
+    comments = post.comments.filter(active=True)  # type: ignore[attr-defined]
 
     # Form for users to comment
     form = CommentForm()
